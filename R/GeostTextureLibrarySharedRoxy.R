@@ -1,3 +1,6 @@
+###Update February 2025
+#Added cpp version of RRI, approximately 20 times faster than the original version
+#After this, other implementations will follow...
 ###update 3 March 2023###
 #news
 #1) Trik2 and RRI functions
@@ -280,6 +283,7 @@ anisoRL=function(x){
 #' # MAD for lag 2 with differences of order 2 using a circular search window of radius 3.
 #' # Using differences of order 1, you should
 #' # apply these on a detrended surface/image.
+#' library(terra)
 #' dem=rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
 #' w=KernelCircular(3)
 #' rough2c=Madscan(dem,k2ck2, w)
@@ -372,6 +376,7 @@ CalcMeans=function(deltas,w,exponent){
 #' #' Variogram-like for lag 2 with differences of order 2 using a circular search window of radius 3.
 #' # Using differences of order 1, you should
 #' # apply these on a detrended surface/image.
+#' library(terra)
 #' dem=rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
 #' w=KernelCircular(3)
 #' rough2c=Meanscan(dem,k2ck2, w,2)
@@ -427,6 +432,7 @@ Meanscan<-function(inRaster,kernels,w,exponent){
 #'
 #' @examples
 #' # Gradient vector dispersion using a circular search window of radius 3.
+#' library(terra)
 #' dem=rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
 #' w=KernelCircular(3)
 #' roughGrad=circularDispersionGV(dem,w)
@@ -438,8 +444,8 @@ circularDispersionGV=function(inraster,window){
   #window-> the search window/kernel (e.g., window=KernelCircular(3))
   slope=terrain(inraster,v="slope", unit= "radians") #Use radians!
   aspect=terrain(inraster,v="aspect", unit= "radians")
-  
-  x=cos(slope)*cos(aspect) 
+
+  x=cos(slope)*cos(aspect)
   y=cos(slope)*sin(aspect)
   z=sin(slope)
   X=focal(x, w=window,fun=sum,expand=F,na.rm=F)
@@ -462,6 +468,7 @@ circularDispersionGV=function(inraster,window){
 #' @examples
 #' #
 #' #Normal vector dispersion using a circular search window of radius 3.
+#' library(terra)
 #' dem=rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
 #' w=KernelCircular(3)
 #' roughVDR=circularDispersionNV(dem,w)
@@ -472,7 +479,7 @@ circularDispersionNV=function(inraster,window){
   #window-> the search window/kernel (e.g., window=KernelCircular(3))
   slope=terrain(inraster,v="slope", unit="radians") #Use radians!
   aspect=terrain(inraster,v="aspect", unit="radians")
-  
+
   #respect to the formulas of Davis book
   # we consider that sin(90-slope)=cos(slope)
   # with 90-slope the angle of the normal vector respect to the horizontal plane
@@ -561,12 +568,13 @@ circularEigenNV=function(inraster,window){
 #update 3 March 2023
 
 
-#' Improved TRI (with differences of order 2), removing slope dependence.
+#' Improved TRI (with differences of order 2), reducing/removing slope dependence.
 #'
-#' It is essentially a roughness radial index.
+#' It is essentially a radial roughness index.
 #' TRIk2 modifies TRI (topographic ruggedness index) using increments of order 2, symmetrical to central pixel,
-#' so as to remove the effect of local slope.
-#' This version does not correct for diagonal distance.
+#' so as to remove/reduce the effect of local slope.
+#' This version does not correct for diagonal distance and therefore is mainly for testing/simulation purposes,
+#' so in practice the Radial Roughness Index calculated by the RRI function should be used instead.
 #' It uses a 5x5 kernel, consequently 12 directional differences of order k (2)
 #' are used in the estimation.
 #' One could also use a 3x3 kernel using only the 4 differences centered on the central pixel
@@ -580,10 +588,10 @@ circularEigenNV=function(inraster,window){
 #' 2) Wilson, M.F.J., O'Connell, B., Brown, C., Guinan, J.C. & Grehan, A.J. 2007.
 #' Multiscale terrain analysis of multibeam bathymetry data for habitat mapping on the continental slope".
 #' Marine Geodesy, vol. 30, no. 1-2, pp. 3-35.
-#' 3) Trevisani S., Teza G., Guth P.L., 2023 (Preprint). Hacking the topographic ruggedness index.
-#' 10.5281/zenodo.7716785
+#' 3) Trevisani S., Teza G., Guth P.L., 2023. Hacking the topographic ruggedness index. Geomorphology
+#' https://doi.org/10.1016/j.geomorph.2023.108838
 #'
-#' @param x The DEM from which to compute the index
+#' @param x A DEM as a SpatRaster or a vector of numeric values from a focal window in a DEM from which to compute the index
 #'
 #'
 #' @return isotropic roughness (in the same units of input)
@@ -591,12 +599,57 @@ circularEigenNV=function(inraster,window){
 #'
 #'
 #' @examples
+#' library(terra)
+#' dem=rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
+#' w <- matrix(1, nrow=5, ncol=5)
+#' roughTrik5x5_v1=focal(dem, w=w, fun=Trik2)
+#' roughTrik5x5_v2=Trik2(dem)
+#' plot(c(roughTrik5x5_v1,roughTrik5x5_v2))
+#'
+
+Trik2 <- function(x) {
+  UseMethod("Trik2")
+}
+
+
+#' Improved TRI (with differences of order 2), reducing/removing slope dependence.
+#'
+#' It is essentially a radial roughness index.
+#' TRIk2 modifies TRI (topographic ruggedness index) using increments of order 2, symmetrical to central pixel,
+#' so as to remove the effect of local slope.
+#' This version does not correct for diagonal distance and therefore is mainly for testing/simulation purposes,
+#' so in practice the Radial Roughness Index calculated by the RRI function should be used instead.
+#' It uses a 5x5 kernel, consequently 12 directional differences of order k (2)
+#' are used in the estimation.
+#' One could also use a 3x3 kernel using only the 4 differences centered on the central pixel
+#' but the metric would be very noisy.
+#' The input is the DEM (no need to detrend).
+#'
+#' @references
+#' 1) Riley, S. J., S. D. DeGloria, and R. Elliott. 1999.
+#' A terrain ruggedness index that quantifies topographic heterogeneity.
+#' Intermountain Journal of Science 5:23.
+#' 2) Wilson, M.F.J., O'Connell, B., Brown, C., Guinan, J.C. & Grehan, A.J. 2007.
+#' Multiscale terrain analysis of multibeam bathymetry data for habitat mapping on the continental slope".
+#' Marine Geodesy, vol. 30, no. 1-2, pp. 3-35.
+#' 3) Trevisani S., Teza G., Guth P.L., 2023. Hacking the topographic ruggedness index. Geomorphology
+#' https://doi.org/10.1016/j.geomorph.2023.108838
+#'
+#' @param x A vector of numeric values from a focal window in a DEM from which to compute the index
+#'
+#'
+#' @return isotropic roughness (in the same units of input)
+#' @export
+#'
+#'
+#' @examples
+#' library(terra)
 #' dem=rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
 #' w <- matrix(1, nrow=5, ncol=5)
 #' roughTrik5x5=focal(dem, w=w, fun=Trik2)
 #' plot(roughTrik5x5)
 #'
-Trik2=function(x){
+Trik2.numeric=function(x){
   (
     abs(-x[1]+2*x[7]-x[13])+
       abs(-x[11]+2*x[12]-x[13])+
@@ -614,11 +667,51 @@ Trik2=function(x){
   )/12
 }
 
+#' Improved TRI (with differences of order 2), reducing/removing slope dependence.
+#'
+#' It is essentially a radial roughness index.
+#' TRIk2 modifies TRI (topographic ruggedness index) using increments of order 2, symmetrical to central pixel,
+#' so as to reduce/remove the effect of local slope.
+#' This version does not correct for diagonal distance and therefore is mainly for testing/simulation purposes,
+#' so in practice the Radial Roughness Index calculated by the RRI function should be used instead.
+#' It uses a 5x5 kernel, consequently 12 directional differences of order k (2)
+#' are used in the estimation.
+#' One could also use a 3x3 kernel using only the 4 differences centered on the central pixel
+#' but the metric would be very noisy.
+#' The input is the DEM (no need to detrend).
+#'
+#' @references
+#' 1) Riley, S. J., S. D. DeGloria, and R. Elliott. 1999.
+#' A terrain ruggedness index that quantifies topographic heterogeneity.
+#' Intermountain Journal of Science 5:23.
+#' 2) Wilson, M.F.J., O'Connell, B., Brown, C., Guinan, J.C. & Grehan, A.J. 2007.
+#' Multiscale terrain analysis of multibeam bathymetry data for habitat mapping on the continental slope".
+#' Marine Geodesy, vol. 30, no. 1-2, pp. 3-35.
+#' 3) Trevisani S., Teza G., Guth P.L., 2023. Hacking the topographic ruggedness index. Geomorphology
+#' https://doi.org/10.1016/j.geomorph.2023.108838
+#'
+#' @param x A DEM as a SpatRaster or a vector of numeric values from a focal window in a DEM from which to compute the index
+#'
+#'
+#' @return isotropic roughness (in the same units of input)
+#' @export
+#'
+#'
+#' @examples
+#' library(terra)
+#' dem=rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
+#' roughTrik5x5=Trik2(dem)
+#' plot(roughTrik5x5)
+#'
+Trik2.SpatRaster=function(x){
+  focal(x, w=c(5,5), fun=Trik2.numeric)
+}
+
 #' RRI: Radial Roughness index
 #'
-#' Modified TRI, based on increments of order 2  (removing slope dependence) and correcting for diagonal distance.
+#' Modified TRI, based on increments of order 2  (reducing/removing slope dependence) and correcting for diagonal distance.
 #' RRI modifies TRI (topographic ruggedness index) using increments of order 2, symmetrical to the central pixel,
-#' so as to remove the effect of local slope.
+#' so as to reduce/remove the effect of local slope.
 #' This version corrects for the diagonal distance using bilinear interpolation.
 #' It uses a 5x5 kernel, consequently 12 directional differences of order k (2)
 #' are used in the estimation.
@@ -637,23 +730,27 @@ Trik2=function(x){
 #' 3) Trevisani S., Teza G., Guth P.L., 2023. Hacking the topographic ruggedness index. Geomorphology
 #' https://doi.org/10.1016/j.geomorph.2023.108838
 #'
-#' @param x The DEM from which to compute the index
-#'
-#'
+#' @param x A DEM as a SpatRaster or a vector of numeric values from a focal window in a DEM from which to compute the index
+#' @param ... reserved for future use
 #' @return isotropic roughness (in the same units of input)
 #' @export
-#'
-#'
 #' @examples
-#' dem=rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
+#' library(terra)
+#' dem= rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
 #' w <- matrix(1, nrow=5, ncol=5)
-#' roughTrick5x5=focal(dem, w=w, fun=RRI)
-#' plot(roughTrick5x5)
-#'
-RRI=function(x){
+#' roughRRI_v1=focal(dem, w=w, fun=RRI)
+#' roughRRI_v2=RRI(dem)
+#' plot(c(roughRRI_v1, roughRRI_v2))
+RRI <- function(x, ...) {
+  UseMethod("RRI")
+}
+
+#' @export
+#' @rdname RRI
+RRI.numeric <- function(x, ...) {
   (
     #external differences
-      abs(-0.5*x[1]-0.5*x[13]-0.207106781186547*x[2]-0.207106781186547*x[6]-0.207106781186547*x[8]-0.207106781186547*x[12]+1.82842712474619*x[7])+
+    abs(-0.5*x[1]-0.5*x[13]-0.207106781186547*x[2]-0.207106781186547*x[6]-0.207106781186547*x[8]-0.207106781186547*x[12]+1.82842712474619*x[7])+
       abs(-x[11]+2*x[12]-x[13])+
       abs(-0.5*x[21]-0.5*x[13]-0.207106781186547*x[16]-0.207106781186547*x[22]-0.207106781186547*x[12]-0.207106781186547*x[18]+1.82842712474619*x[17])+
       abs(-x[23]+2*x[18]-x[13])+
@@ -661,7 +758,7 @@ RRI=function(x){
       abs(-x[15]+2*x[14]-x[13])+
       abs(-0.5*x[5]-0.5*x[13]-0.207106781186547*x[4]-0.207106781186547*x[10]-0.207106781186547*x[8]-0.207106781186547*x[14]+1.82842712474619*x[9])+
       abs(-x[3]+2*x[8]-x[13])+
-    #You could define a function using only the following 4 directional differences
+      #You could define a function using only the following 4 directional differences
       abs(-0.5*x[7]-0.5*x[19]-0.207106781186547*x[8]-0.207106781186547*x[12]-0.207106781186547*x[14]-0.207106781186547*x[18]+1.82842712474619*x[13])+
       abs(-x[12]+2*x[13]-x[14])+
       abs(-0.5*x[17]-0.5*x[9]-0.207106781186547*x[8]-0.207106781186547*x[12]-0.207106781186547*x[14]-0.207106781186547*x[18]+1.82842712474619*x[13])+
@@ -669,7 +766,198 @@ RRI=function(x){
   )/12
 }
 
+#' @param .method Either `r` or `rcpp` (fast batch processing using C++)
+#' @export
+#' @rdname RRI
+RRI.SpatRaster <- function(x, ..., .method = c("rcpp", "r")) {
+  .method <- match.arg(.method)
 
+  if (identical(.method, "rcpp")) {
+    focalCpp(x, w = 5, fun = RRI_cpp)
+  } else {
+    focal(x, w = 5, fun = RRI.numeric)
+  }
+}
+
+#Update March 2025
+#' RRIK3: Radial Roughness index with differences of order 3
+#'
+#' Extension of RRI using differences of order 3
+#' Accordingly, this version filters out a trend of order 2, so it reduces still more the dependence
+#' on slope and partially on curvature.
+#' The input is the DEM (no need to detrend).
+#'
+#' @references
+#'
+#' Trevisani S., Teza G., Guth P.L., 2023. Hacking the topographic ruggedness index. Geomorphology
+#' https://doi.org/10.1016/j.geomorph.2023.108838
+#'
+#' @param x A DEM as a SpatRaster or a vector of numeric values from a focal window in a DEM from which to compute the index
+#' @param ... reserved for future use
+#' @return isotropic roughness (in the same units of input)
+#' @export
+#' @examples
+#' library(terra)
+#' dem= rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
+#' roughRRIK3=RRIK3(dem)
+#' plot(roughRRIK3)
+RRIK3 <- function(x, ...) {
+  UseMethod("RRIK3")
+}
+
+#' @export
+#' @rdname RRIK3
+RRIK3.numeric <- function(x, ...) {
+  (
+    abs(x[18]-3*x[13]+3*x[8]-x[3])
+    +abs((0.207106781186548*x[12]+0.0857864376269049*x[13]+0.5*x[17]+0.207106781186547*x[18])
+         -3*x[13]+3*(0.207106781186547*x[8]+0.5*x[9]+0.085786437626905*x[13]+0.207106781186547*x[14])
+         -(0.242640687119285*x[4]+0.17157287525381*x[5]+0.34314575050762*x[9]+0.242640687119285*x[10]))
+    +abs(x[12]-3*x[13]+3*x[14]-x[15])
+    +abs((0.5*x[7]+0.207106781186548*x[8]+0.207106781186547*x[12]+0.085786437626905*x[13])
+         -3*x[13]+3*(0.085786437626905*x[13]+0.207106781186547*x[14]+0.207106781186548*x[18]+0.5*x[19])
+         -(0.34314575050762*x[19]+0.242640687119285*x[20]+0.242640687119285*x[24]+0.17157287525381*x[25]))
+    +abs(x[8]-3*x[13]+3*x[18]-x[23])
+    +abs((0.207106781186547*x[8]+0.5*x[9]+0.085786437626905*x[13]+0.207106781186547*x[14])
+         -3*x[13]+3*(0.207106781186548*x[12]+0.0857864376269049*x[13]+0.5*x[17]+0.207106781186547*x[18])
+         -(0.242640687119285*x[16]+0.34314575050762*x[17]+0.17157287525381*x[21]+0.242640687119285*x[22]))
+    +abs(x[14]-3*x[13]+3*x[12]-x[11])
+    +abs((0.085786437626905*x[13]+0.207106781186547*x[14]+0.207106781186548*x[18]+0.5*x[19])
+         -3*x[13]+3*(0.5*x[7]+0.207106781186548*x[8]+0.207106781186547*x[12]+0.085786437626905*x[13])
+         -(0.17157287525381*x[1]+0.242640687119285*x[2]+0.242640687119285*x[6]+0.34314575050762*x[7]))
+  )/8
+}
+
+#' @param .method Either `r` or `rcpp` (fast batch processing using C++, still to implement)
+#' @export
+#' @rdname RRIK3
+RRIK3.SpatRaster <- function(x, ..., .method = c("rcpp", "r")) {
+  .method <- match.arg(.method)
+
+  if (identical(.method, "rcpp")) {
+    focalCpp(x, w = 5, fun = RRIK3_cpp)
+    #message("cpp version still to be implemented")
+  } else {
+    focal(x, w = 5, fun = RRIK3.numeric)
+  }
+}
+
+#' RRIMin: Minimum Radial Roughness index
+#'
+#' Same as RRI but instead of computing the mean of the absolute differences of order 2,
+#' the minimum is computed.
+#' The input is the DEM (no need to detrend).
+#'
+#' @references
+#'
+#' Trevisani S., Teza G., Guth P.L., 2023. Hacking the topographic ruggedness index. Geomorphology
+#' https://doi.org/10.1016/j.geomorph.2023.108838
+#'
+#' @param x A DEM as a SpatRaster or a vector of numeric values from a focal window in a DEM from which to compute the index
+#' @param ... reserved for future use
+#' @return isotropic roughness (in the same units of input)
+#' @export
+#' @examples
+#' library(terra)
+#' dem= rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
+#' roughRRImin=RRIMin(dem)
+#' plot(roughRRImin)
+RRIMin <- function(x, ...) {
+  UseMethod("RRIMin")
+}
+
+#' @export
+#' @rdname RRIMin
+RRIMin.numeric <- function(x, ...) {
+  min(c(
+    #external differences
+    abs(-0.5*x[1]-0.5*x[13]-0.207106781186547*x[2]-0.207106781186547*x[6]-0.207106781186547*x[8]-0.207106781186547*x[12]+1.82842712474619*x[7]),
+    abs(-x[11]+2*x[12]-x[13]),
+    abs(-0.5*x[21]-0.5*x[13]-0.207106781186547*x[16]-0.207106781186547*x[22]-0.207106781186547*x[12]-0.207106781186547*x[18]+1.82842712474619*x[17]),
+    abs(-x[23]+2*x[18]-x[13]),
+    abs(-0.5*x[25]-0.5*x[13]-0.207106781186547*x[20]-0.207106781186547*x[24]-0.207106781186547*x[14]-0.207106781186547*x[18]+1.82842712474619*x[19]),
+    abs(-x[15]+2*x[14]-x[13]),
+    abs(-0.5*x[5]-0.5*x[13]-0.207106781186547*x[4]-0.207106781186547*x[10]-0.207106781186547*x[8]-0.207106781186547*x[14]+1.82842712474619*x[9]),
+    abs(-x[3]+2*x[8]-x[13]),
+    #You could define a function using only the following 4 directional differences
+    abs(-0.5*x[7]-0.5*x[19]-0.207106781186547*x[8]-0.207106781186547*x[12]-0.207106781186547*x[14]-0.207106781186547*x[18]+1.82842712474619*x[13]),
+    abs(-x[12]+2*x[13]-x[14]),
+    abs(-0.5*x[17]-0.5*x[9]-0.207106781186547*x[8]-0.207106781186547*x[12]-0.207106781186547*x[14]-0.207106781186547*x[18]+1.82842712474619*x[13]),
+    abs(-x[8]+2*x[13]-x[18])
+  ))
+}
+#' @param .method Either `r` or `rcpp` (fast batch processing using C++, still to implement)
+#' @export
+#' @rdname RRIMin
+RRIMin.SpatRaster <- function(x, ..., .method = c("rcpp","r")) {
+  .method <- match.arg(.method)
+
+  if (identical(.method, "rcpp")) {
+    focalCpp(x, w = 5, fun = RRIMin_cpp)
+  } else {
+    focal(x, w = 5, fun = RRIMin.numeric)
+  }
+}
+
+#' RRIMax: Maximum Radial Roughness index 
+#'
+#' Same as RRI but instead of computing the mean of the absolute differences of order 2,
+#' the maximum is computed.
+#' The input is the DEM (no need to detrend).
+#'
+#' @references
+#'
+#'Trevisani S., Teza G., Guth P.L., 2023. Hacking the topographic ruggedness index. Geomorphology
+#' https://doi.org/10.1016/j.geomorph.2023.108838
+#'
+#' @param x A DEM as a SpatRaster or a vector of numeric values from a focal window in a DEM from which to compute the index
+#' @param ... reserved for future use
+#' @return isotropic roughness (in the same units of input)
+#' @export
+#' @examples
+#' library(terra)
+#' dem= rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
+#' roughRRIMax=RRIMax(dem)
+#' plot(roughRRIMax)
+RRIMax <- function(x, ...) {
+  UseMethod("RRIMax")
+}
+
+#' @export
+#' @rdname RRIMax
+RRIMax.numeric <- function(x, ...) {
+  max(c(
+    #external differences
+    abs(-0.5*x[1]-0.5*x[13]-0.207106781186547*x[2]-0.207106781186547*x[6]-0.207106781186547*x[8]-0.207106781186547*x[12]+1.82842712474619*x[7]),
+    abs(-x[11]+2*x[12]-x[13]),
+    abs(-0.5*x[21]-0.5*x[13]-0.207106781186547*x[16]-0.207106781186547*x[22]-0.207106781186547*x[12]-0.207106781186547*x[18]+1.82842712474619*x[17]),
+    abs(-x[23]+2*x[18]-x[13]),
+    abs(-0.5*x[25]-0.5*x[13]-0.207106781186547*x[20]-0.207106781186547*x[24]-0.207106781186547*x[14]-0.207106781186547*x[18]+1.82842712474619*x[19]),
+    abs(-x[15]+2*x[14]-x[13]),
+    abs(-0.5*x[5]-0.5*x[13]-0.207106781186547*x[4]-0.207106781186547*x[10]-0.207106781186547*x[8]-0.207106781186547*x[14]+1.82842712474619*x[9]),
+    abs(-x[3]+2*x[8]-x[13]),
+    #You could define a function using only the following 4 directional differences
+    abs(-0.5*x[7]-0.5*x[19]-0.207106781186547*x[8]-0.207106781186547*x[12]-0.207106781186547*x[14]-0.207106781186547*x[18]+1.82842712474619*x[13]),
+    abs(-x[12]+2*x[13]-x[14]),
+    abs(-0.5*x[17]-0.5*x[9]-0.207106781186547*x[8]-0.207106781186547*x[12]-0.207106781186547*x[14]-0.207106781186547*x[18]+1.82842712474619*x[13]),
+    abs(-x[8]+2*x[13]-x[18])
+  ))
+}
+#' @param .method Either `r` or `rcpp` (fast batch processing using C++, still to implement)
+#' @export
+#' @rdname RRIMax
+RRIMax.SpatRaster <- function(x, ..., .method = c("rcpp","r")) {
+  .method <- match.arg(.method)
+
+  if (identical(.method, "rcpp")) {
+    focalCpp(x, w = 5, fun = RRIMax_cpp)
+  } else {
+    focal(x, w = 5, fun = RRIMax.numeric)
+  }
+}
+
+
+#End Update March 2025
 
 
 ###End other roughness indexes###

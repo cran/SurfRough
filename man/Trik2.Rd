@@ -2,21 +2,22 @@
 % Please edit documentation in R/GeostTextureLibrarySharedRoxy.R
 \name{Trik2}
 \alias{Trik2}
-\title{Improved TRI (with differences of order 2), removing slope dependence.}
+\title{Improved TRI (with differences of order 2), reducing/removing slope dependence.}
 \usage{
 Trik2(x)
 }
 \arguments{
-\item{x}{The DEM from which to compute the index}
+\item{x}{A DEM as a SpatRaster or a vector of numeric values from a focal window in a DEM from which to compute the index}
 }
 \value{
 isotropic roughness (in the same units of input)
 }
 \description{
-It is essentially a roughness radial index.
+It is essentially a radial roughness index.
 TRIk2 modifies TRI (topographic ruggedness index) using increments of order 2, symmetrical to central pixel,
-so as to remove the effect of local slope.
-This version does not correct for diagonal distance.
+so as to remove/reduce the effect of local slope.
+This version does not correct for diagonal distance and therefore is mainly for testing/simulation purposes,
+so in practice the Radial Roughness Index calculated by the RRI function should be used instead.
 It uses a 5x5 kernel, consequently 12 directional differences of order k (2)
 are used in the estimation.
 One could also use a 3x3 kernel using only the 4 differences centered on the central pixel
@@ -24,10 +25,12 @@ but the metric would be very noisy.
 The input is the DEM (no need to detrend).
 }
 \examples{
+library(terra)
 dem=rast(paste(system.file("extdata", package = "SurfRough"), "/trento1.tif",sep=""))
 w <- matrix(1, nrow=5, ncol=5)
-roughTrik5x5=focal(dem, w=w, fun=Trik2)
-plot(roughTrik5x5)
+roughTrik5x5_v1=focal(dem, w=w, fun=Trik2)
+roughTrik5x5_v2=Trik2(dem)
+plot(c(roughTrik5x5_v1,roughTrik5x5_v2))
 
 }
 \references{
@@ -38,7 +41,7 @@ Intermountain Journal of Science 5:23.
 \item Wilson, M.F.J., O'Connell, B., Brown, C., Guinan, J.C. & Grehan, A.J. 2007.
 Multiscale terrain analysis of multibeam bathymetry data for habitat mapping on the continental slope".
 Marine Geodesy, vol. 30, no. 1-2, pp. 3-35.
-\item Trevisani S., Teza G., Guth P.L., 2023 (Preprint). Hacking the topographic ruggedness index.
-10.5281/zenodo.7716785
+\item Trevisani S., Teza G., Guth P.L., 2023. Hacking the topographic ruggedness index. Geomorphology
+https://doi.org/10.1016/j.geomorph.2023.108838
 }
 }
